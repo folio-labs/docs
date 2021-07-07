@@ -7,19 +7,18 @@ description: >
 tags: ["subtopic"]
 ---
 
-*Warning:  This deployment method is still considered an experimental method.  It is still a work in progress.  Currently, only the Okapi installation is available.  The module deployments are blocked by an unsolved issue in the configuration of each module.*
+*Warning:  This deployment method is experimental; a proof of concept maintained by a single volunteer in his spare time.  It is still work in progress and may remain so for a long time.  Currently, only an unsecured backend installation is available.*
 
 With this type of deployment, each module of FOLIO is bundled with a DEB package and runs directly on the host operating system without containers.
 
 ![FOLIO Single Server components (DEB installers)](/img/single_deb.png)
 
-The main differences between this deployment and the method with docker containers are:
+The main differences in this deployment compared to the docker container method are:
 
-* Each module creates a new service and user on the operating system with the no container installation method. 
-* Each module creates a new database and role in PostgreSQL with the no container method.
-* No PostgreSQL superuser roles are required for Okapi or the modules with the no container method.  It is required during the installation.
-* Modules and users are prefixed with 'folio-' with this method.
-* This deployment method reduces the RAM requirement of each module to about 71MB. 
+* Each module creates a new systemd service and user on the operating system, prefixed with 'folio-'
+* Each module creates a new database and role in PostgreSQL with customizable prefixes
+* No PostgreSQL superuser roles are required for Okapi or the modules.  Superuser credentials are only required during the installation.
+* Reduces the RAM requirement of each module to about 71MB. 
 
 **Note:**  This installation process is still under development and it is NOT recommended for setting up a production system. At the moment, only the Okapi and backend modules are considered on this installer, the installation of Stripes has to be manually executed.
 
@@ -27,11 +26,11 @@ The main differences between this deployment and the method with docker containe
 
 **Software requirements**
 
-| **Requirement**      | **Recommended Version**                    |
-|----------------------|--------------------------------------------|
-| Operating system     | Ubuntu 18.04.5 LTS (Bionic Beaver) 64-bits |
-| Java                 | OpenJDK 11                                 |
-| PostgreSQL           | PostgreSQL 10                              |
+| **Requirement**      | **Recommended Version**                                            |
+|----------------------|--------------------------------------------------------------------|
+| Operating system     | Ubuntu 18.04.5 LTS (Bionic Beaver) 64-bits or Debian Buster amd64  |
+| Java                 | OpenJDK 11                                                         |
+| PostgreSQL           | PostgreSQL 10                                                      |
 
 **Hardware requirements**
 
@@ -42,15 +41,15 @@ The main differences between this deployment and the method with docker containe
 
 ## Installation Requirements
 
-1. Install Java 11.
+1. Add the Folio Debian Repo to your system:
 
 ```
-sudo apt-get update
+sudo add-apt-repository "deb http://folio-repo.bib-bvb.de/repo folio-bleeding main"
+wget -qO - http://folio-repo.bib-bvb.de/repository.gpg | sudo apt-key add -
 ```
 
 
 2. Import the PostgreSQL signing key, add the PostgreSQL apt repository and install PostgreSQL.
-
 
 ```
 wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
@@ -59,39 +58,17 @@ sudo apt-get update
 sudo apt-get -y install postgresql-10 postgresql-client-10 postgresql-contrib-10 libpq-dev
 ```
 
-3. Create a superuser for FOLIO. 
 
-* Log into the PostgreSQL server as a superuser.
+3. Allow connections in PostgreSQL.
 
-```
-sudo su -c psql postgres postgres
-```
+**Note:**  This is only necessary if you run your PostgreSQL server on a different machine.  If you plan to run it on the same server as the FOLIO deployment, skip this step.
 
-* Create a new superuser role.
-
-```
-CREATE ROLE foliosu WITH PASSWORD 'folio123' LOGIN SUPERUSER;
-```
-
-* Exit psql with **\q** command.
-
-4. Allow connections in PostgreSQL.
- 
-* Edit file **/etc/postgresql/10/main/postgresql.conf** to add line **listen_addresses = '*'** in the "Connection Settings" section.
-* Edit file **/etc/postgresql/10/main/pg_hba.conf** to add line host **all all 0.0.0.0/0 md5** .
+* Modify the line **listen_addresses = ...** in **/etc/postgresql/10/main/postgresql.conf** to make PostgreSQL listen on the necessary interfaces.
+* Add the line **all all w.x.y.z/32 md5** to **/etc/postgresql/10/main/pg_hba.conf** (with w.x.y.z being the IP address of your FOLIO host).
 * Restart PostgreSQL with command **sudo systemctl restart postgresql** .
 
 
 ## Installing Okapi
-
-1. Import the FOLIO signing key and add the FOLIO apt repository.
-
-```
-wget --quiet -O - https://folio-repo.bib-bvb.de/repository.gpg | sudo apt-key add -
-sudo add-apt-repository "deb [arch=amd64] http://folio-repo.bib-bvb.de/repo folio-bleeding main"
-```
-
-2. Install Okapi through the package manager.
 
 ```
 sudo apt-get update
@@ -104,7 +81,7 @@ This DEB package will start a graphical installer where you can configure Okapi.
 This wizard has the following stages:
 
 * **Select a working mode**.  If you want to install FOLIO on a single server configuration, you should choose ‘dev’.
-* **Select port range of Okapi**.  The default ports range 9130-9149 is recommended.
+* **Select port range of Okapi**.  The default port range 9130-9149 is NOT recommended, since there's too few ports in this range for all the modules.
 * **Choose the backend type**.  PostgreSQL is the recommended.
 * **Database host and port**.  Insert IP and port of the PostgreSQL server or simply ‘localhost’ if it is running on the same server. 
 * **Enter the PostgreSQL user for Okapi**.   For example, folio_okapi.
@@ -114,8 +91,8 @@ This wizard has the following stages:
 The installer will automatically apply these configurations on the PostgreSQL server if you provide superuser credentials or you can create them manually.
 
 * **Apply the database connection details**.  If you decide to set up a PostgreSQL database for Okapi automatically, you have to enter superuser credentials.
-* **Enter a PostgreSQL superuser**.  Enter the username of a postgres administrator account (e.g. foliosu). 
-* **Enter superuser password**.  For example, folio123.
+* **Enter a PostgreSQL superuser**.  Enter the username of a postgres administrator account (e.g. root). 
+* **Enter superuser password**.
 
 The installer will configure and start Okapi automatically with the configurations that you have provided.  Additionally, you can create new tenants on Okapi in the next step of the installation process or you can create them later.
 
@@ -131,7 +108,7 @@ Once you have installed Okapi, you can install modules and assign them to tenant
 
 ## Installing modules
 
-The complete list of available installers for FOLIO modules can be found [here](https://github.com/drexljo/folio-projects).  Currently, the modules that depend on the mod-pubsub module do not have support.  The modules are bundled as DEB packages that deploy Java processes and register themselves on Okapi.
+The complete list of available installers for FOLIO modules can be found [here](https://github.com/drexljo/folio-projects), or by apt-get autocompletion.  Currently, the modules that depend on the mod-pubsub module do not have support.  The modules are bundled as DEB packages that deploy Java processes and register themselves with Okapi.
 
 With this deployment method, each module is installed independently.  If you want to install a suite of apps similar to [platform-core](https://github.com/folio-org/platform-core) or [platform-complete](https://github.com/folio-org/platform-complete), you can find the list of modules that you have to install in the github  repositories.  The backend module list can be found in the file **okapi-install.json** and the frontend modules in the file **stripes-install.json**. 
 
@@ -219,7 +196,7 @@ The configuration files of Okapi are located  in the folder: **/etc/folio/okapi/
 Take into account that you have to restart the Okapi service if you change the okapi.conf file.
 
 ### Secure Okapi
-In order to secure Okapi, you should run the **secure-supertenant** script.  The usage of this script is explained in the Secure Okapi section of the Single Server Installation Guide.
+In order to secure Okapi, you should run the **secure-supertenant** script.  The usage of this script is explained in the Secure Okapi section of the Single Server Installation Guide. **Be aware this will break autoregistration of modules during restarts as of now!**
 
 ## Tenant configuration
 ### Add a new tenant
@@ -227,7 +204,7 @@ If you want to create a new tenant, you can use the script **addtenants**.
 ```
 sudo /usr/share/folio/okapi/bin/addtenants newtenant
 ```
-**Note**:   You have to pass the ID of the new tenant as argument to the script.   For example, **newtenant**
+**Note**:   You don't have to pass the ID of the new tenant as argument to the script.   If you don't, it will simply ask you.
 
 This starts a graphical wizard similar to the one shown in the Okapi installer and all the tenants are registered in the file **/etc/folio/tenants**.
 
