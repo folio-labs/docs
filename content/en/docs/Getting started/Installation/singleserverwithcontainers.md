@@ -3,7 +3,7 @@ title: "Single server with containers"
 linkTitle: "Single server with containers"
 weight: 10
 description: >
-  Note: This content is currently in draft status.
+  Note: This content is currently in draft status. For the time being you might want to try the [folio-install single-server documentation at GitHub](https://github.com/folio-org/folio-install/blob/master/runbooks/single-server/README.md) instead.
 tags: ["subtopic"]
 ---
 A single server installation is recommended if you have a single tenant or you can estimate beforehand the number of tenants and resources that your FOLIO instance will handle.  
